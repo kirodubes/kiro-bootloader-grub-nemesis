@@ -24,10 +24,11 @@ set -euo pipefail
 #   Listed in Kiro-HQ/TEMPLATE_EXCLUSIONS.md.
 #####################################################################
 
-# grub may have been removed (e.g. systemd-boot install). Nothing to do.
-command -v grub-install >/dev/null 2>&1 || exit 0
-
 EFI_DIR="/boot/efi"
+
+# Act ONLY when GRUB is the live bootloader (shared guard -- grub is part
+# of archiso so always installed; never write grub onto a systemd-boot box).
+/usr/bin/kiro-grub-is-active || exit 0
 
 # ── Detect the bootloader-id GRUB already uses on the ESP ───────────
 # Re-use the existing EFI/<id> directory so an upgrade refreshes that

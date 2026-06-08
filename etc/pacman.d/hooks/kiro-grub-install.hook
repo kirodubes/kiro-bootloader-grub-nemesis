@@ -1,6 +1,7 @@
 # Re-flash the GRUB boot image after a grub upgrade so the on-disk
 # image cannot drift from /boot/grub modules (the classic Arch brick).
-# Depends = grub keeps this inert on systemd-boot installs.
+# kiro-grub-install self-guards via kiro-grub-is-active, so it is a no-op
+# on systemd-boot systems (grub is part of archiso = always installed).
 [Trigger]
 Operation = Install
 Operation = Upgrade
@@ -9,6 +10,5 @@ Target = grub
 
 [Action]
 Description = Kiro: re-running grub-install (keep the system bootable)
-Depends = grub
 When = PostTransaction
 Exec = /usr/bin/kiro-grub-install

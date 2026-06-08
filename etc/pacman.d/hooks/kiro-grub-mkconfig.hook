@@ -2,7 +2,10 @@
 # changes, so menu entries and initrd lines stay correct (new kernels
 # get an entry; removed ones drop out). This is menu hygiene, not the
 # boot-image safety step (see kiro-grub-install.hook).
-# Depends = grub keeps this inert on systemd-boot installs.
+#
+# kiro-grub-is-active makes it a no-op on systemd-boot systems (grub is
+# part of archiso so it is always installed -- the guard, not package
+# presence, is what keeps this inert).
 #
 # Kernels are matched by the vmlinuz they all install
 # (usr/lib/modules/*/vmlinuz), NOT by package name -- that catches every
@@ -26,6 +29,5 @@ Target = intel-ucode
 
 [Action]
 Description = Kiro: regenerating grub.cfg
-Depends = grub
 When = PostTransaction
-Exec = /usr/bin/grub-mkconfig -o /boot/grub/grub.cfg
+Exec = /bin/sh -c '/usr/bin/kiro-grub-is-active || exit 0; exec grub-mkconfig -o /boot/grub/grub.cfg'

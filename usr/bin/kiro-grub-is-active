@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+#####################################################################
+# Author    : Erik Dubois
+# Website   : https://kiroproject.be
+#####################################################################
+#
+#   DO NOT JUST RUN THIS. EXAMINE AND JUDGE. RUN AT YOUR OWN RISK.
+#
+# Purpose:
+#   Exit 0 iff GRUB is the LIVE bootloader on this system, 1 otherwise.
+#   Single source of truth shared by both grub hooks so the test can
+#   never drift between them.
+# Why:
+#   grub is part of archiso, so it is ALWAYS installed -- its presence
+#   proves nothing. The real question is "are we booting with grub or
+#   systemd-boot?". Mirrors the discriminator kiro_final already uses.
+#
+# NOTE: off the Kiro flow-script template on purpose (no banners /
+#   sleep-on-error) -- it runs inside a pacman hook.
+#   Listed in Kiro-HQ/TEMPLATE_EXCLUSIONS.md.
+#####################################################################
+
+# systemd-boot writes its loader.conf into the ESP -> not our system.
+[ -f /boot/efi/loader/loader.conf ] && exit 1
+
+# Only ever act on an already-installed grub setup, never create one.
+[ -e /boot/grub/grub.cfg ] || exit 1
+
+exit 0
