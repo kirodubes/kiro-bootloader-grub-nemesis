@@ -1,0 +1,31 @@
+# Regenerate /boot/grub/grub.cfg when grub, ANY kernel, or microcode
+# changes, so menu entries and initrd lines stay correct (new kernels
+# get an entry; removed ones drop out). This is menu hygiene, not the
+# boot-image safety step (see kiro-grub-install.hook).
+# Depends = grub keeps this inert on systemd-boot installs.
+#
+# Kernels are matched by the vmlinuz they all install
+# (usr/lib/modules/*/vmlinuz), NOT by package name -- that catches every
+# kernel (linux, -lts, -zen, -cachyos, -hardened, -rt, -xanmod, -tkg,
+# custom builds, ...) without ever maintaining a list.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Path
+Target = usr/lib/modules/*/vmlinuz
+
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = grub
+Target = amd-ucode
+Target = intel-ucode
+
+[Action]
+Description = Kiro: regenerating grub.cfg
+Depends = grub
+When = PostTransaction
+Exec = /usr/bin/grub-mkconfig -o /boot/grub/grub.cfg

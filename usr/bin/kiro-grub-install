@@ -1,0 +1,73 @@
+#!/bin/bash
+set -euo pipefail
+#####################################################################
+# Author    : Erik Dubois
+# Website   : https://kiroproject.be
+#####################################################################
+#
+#   DO NOT JUST RUN THIS. EXAMINE AND JUDGE. RUN AT YOUR OWN RISK.
+#
+# Purpose:
+#   Re-run grub-install for the firmware mode in use, so the on-disk
+#   GRUB boot image (BIOS core.img / UEFI grubx64.efi) is regenerated
+#   whenever the grub package is upgraded.
+# Why:
+#   A grub package upgrade refreshes /boot/grub modules but NOT the
+#   already-installed boot image. The mismatch is the classic Arch
+#   "error: symbol grub_* not found" brick. Re-running grub-install
+#   keeps the system bootable. The BIOS target disk is DISCOVERED
+#   from where /boot lives (grub-probe + lsblk) -- never assumed to
+#   be /dev/sda, so it works on vda/sdb/nvme*/mmcblk* alike.
+#
+# NOTE: intentionally NOT on the Kiro flow-script template (no banner
+#   logging, no sleep-on-error) -- it runs inside a pacman hook.
+#   Listed in Kiro-HQ/TEMPLATE_EXCLUSIONS.md.
+#####################################################################
+
+# grub may have been removed (e.g. systemd-boot install). Nothing to do.
+command -v grub-install >/dev/null 2>&1 || exit 0
+
+EFI_DIR="/boot/efi"
+
+# ── Detect the bootloader-id GRUB already uses on the ESP ───────────
+# Re-use the existing EFI/<id> directory so an upgrade refreshes that
+# entry instead of creating a duplicate. Fall back to "Kiro".
+detect_efi_id() {
+    local d name
+    for d in "$EFI_DIR"/EFI/*/; do
+        [ -f "${d}grubx64.efi" ] || continue
+        name="$(basename "$d")"
+        [ "$name" = "BOOT" ] && continue   # firmware fallback dir, not ours
+        printf '%s\n' "$name"
+        return 0
+    done
+    printf 'Kiro\n'
+}
+
+# ── Resolve the disk(s) that hold /boot, for the BIOS MBR target ────
+# grub-probe gives the partition device; lsblk -no pkname gives its
+# parent disk regardless of naming (sda/vda/nvme0n1/mmcblk0). RAID
+# /boot can map to several parents -> install to each.
+boot_disks() {
+    local part parent
+    part="$(grub-probe --target=device /boot)"
+    lsblk -no pkname "$part" | while read -r parent; do
+        [ -n "$parent" ] && printf '/dev/%s\n' "$parent"
+    done
+}
+
+if [ -d /sys/firmware/efi ]; then
+    grub-install --target=x86_64-efi --efi-directory="$EFI_DIR" \
+        --bootloader-id="$(detect_efi_id)" --recheck
+else
+    disks="$(boot_disks)"
+    if [ -z "$disks" ]; then
+        echo "kiro-grub-install: could not determine BIOS boot disk for /boot" >&2
+        exit 1
+    fi
+    while read -r disk; do
+        [ -n "$disk" ] || continue
+        echo "kiro-grub-install: BIOS grub-install -> $disk"
+        grub-install --target=i386-pc --recheck "$disk"
+    done <<< "$disks"
+fi
